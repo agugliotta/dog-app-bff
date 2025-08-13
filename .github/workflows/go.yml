@@ -9,20 +9,85 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  PROJECT_NAME: dog-app-bff
+  DOCKER_DB_PASSWORD: mysecretpassword
+  DOCKER_DB_NAME: dog_app_db_test
+  DB_PORT: 5432
+
 jobs:
 
-  build:
+  test:
     runs-on: ubuntu-latest
+    
+    # 1. Add the PostgreSQL service
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: ${{ env.DOCKER_DB_PASSWORD }}
+          POSTGRES_DB: ${{ env.DOCKER_DB_NAME }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v4
-
+    
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
-        go-version: '1.20'
+        go-version: '1.24'
+    
+    - name: Test - Unitarios
+      run: go test -v ./internal/handlers/...
 
-    - name: Build
-      run: go build -v ./...
-
-    - name: Test
-      run: go test -v ./...
+    # 2. Wait for the database to be ready
+    - name: Wait for PostgreSQL to be ready
+      run: |
+        while ! nc -z localhost 5432; do   
+          echo "Waiting for PostgreSQL to be ready..."
+          sleep 1
+        done
+    
+    # 3. Set up the database for integration tests
+    - name: Setup test database
+      env:
+        PGPASSWORD: ${{ env.DOCKER_DB_PASSWORD }}
+      run: |
+        # Use 'localhost' as the host for psql
+        psql -h localhost -U postgres -d ${{ env.DOCKER_DB_NAME }} -v ON_ERROR_STOP=1 <<EOF
+        DROP TABLE IF EXISTS pets CASCADE;
+        DROP TABLE IF EXISTS breeds CASCADE;
+        CREATE TABLE breeds (
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            temperament TEXT,
+            origin VARCHAR(255)
+        );
+        CREATE TABLE pets (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name VARCHAR(255) NOT NULL,
+            birth DATE NOT NULL,
+            breed_id VARCHAR(255) NOT NULL REFERENCES breeds(id)
+        );
+        INSERT INTO breeds (id, name, temperament, origin) VALUES
+        ('golden-retriever', 'Golden Retriever', 'Friendly, Intelligent, Devoted', 'Scotland'),
+        ('german-shepherd', 'German Shepherd', 'Intelligent, Obedient, Courageous', 'Germany'),
+        ('poodle', 'Poodle', 'Intelligent, Proud, Active', 'Germany/France'),
+        ('labrador-retriever', 'Labrador Retriever', 'Outgoing, Even-tempered, Gentle', 'Canada'),
+        ('bulldog', 'Bulldog', 'Docile, Willful, Friendly', 'England');
+        INSERT INTO pets (name, birth, breed_id) VALUES
+        ('Buddy', '2022-05-10', 'golden-retriever'),
+        ('Max', '2023-01-20', 'german-shepherd');
+        EOF
+    
+    # 4. Run the integration tests
+    - name: Test - Integration
+      env:
+        TEST_DB_CONN_STRING: "host=localhost port=${{ env.DB_PORT }} user=postgres password=${{ env.DOCKER_DB_PASSWORD }} dbname=${{ env.DOCKER_DB_NAME }} sslmode=disable"
+      run: go test -v ./internal/store/...
