@@ -21,4 +21,5 @@ type PetStore interface {
 	GetPets() ([]types.Pet, error)
 	GetPetByID(id string) (*types.Pet, error)
 	CreatePet(name string, birth time.Time, breedID string) (*types.Pet, error)
+	DeletePet(id string) error
 }

@@ -124,7 +124,7 @@ func (s *PostgresStore) GetPetByID(id string) (*types.Pet, error) {
 		WHERE
 			p.id=$1
 	`
-	err := s.db.QueryRow(query).Scan(&pet.ID, &pet.Name, &pet.Birth, &breed.ID, &breed.Name, &breed.Temperament, &breed.Origin)
+	err := s.db.QueryRow(query, id).Scan(&pet.ID, &pet.Name, &pet.Birth, &breed.ID, &breed.Name, &breed.Temperament, &breed.Origin)
 	switch err {
 	case sql.ErrNoRows:
 		return nil, ErrNotFound
@@ -166,4 +166,13 @@ func (s *PostgresStore) CreatePet(name string, birth time.Time, breedID string) 
 	}
 
 	return newPet, nil
+}
+
+func (s *PostgresStore) DeletePet(id string) error {
+	_, err := s.db.Exec("DELETE FROM pets WHERE id=$1", id)
+
+	if err != nil {
+		return err
+	}
+	return nil
 }

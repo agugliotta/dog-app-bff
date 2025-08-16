@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -62,6 +63,20 @@ func (m *PetStoreMock) CreatePet(name string, birth time.Time, breedID string) (
 	}
 	m.pets = append(m.pets, pet)
 	return &pet, nil
+}
+
+func (m *PetStoreMock) DeletePet(id string) error {
+	index := -1
+	for i, p := range m.pets {
+		if p.ID == id {
+			index = i
+		}
+	}
+	if index == -1 {
+		return store.ErrNotFound
+	}
+	m.pets = slices.Delete(m.pets, index, index+1)
+	return nil
 }
 
 type BreedStoreMock struct {

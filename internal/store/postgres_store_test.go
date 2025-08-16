@@ -5,6 +5,9 @@ import (
 	"log"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/agugliotta/dog-app-bff/internal/types"
 )
 
 func setupTestDB() *PostgresStore {
@@ -140,6 +143,56 @@ func TestGetBreedByID(t *testing.T) {
 		// ¡Aserción clave! Usar errors.Is para verificar el error sentinel
 		if !errors.Is(err, ErrNotFound) { // Asegúrate de importar "errors" aquí si no está
 			t.Errorf("Tipo de error incorrecto para ID no existente: esperado 'store.ErrNotFound', obtenido '%v'", err)
+		}
+	})
+
+}
+
+func TestGetPets(t *testing.T) {
+	store := setupTestDB()
+	defer store.db.Close()
+
+	pets, err := store.GetPets()
+	if err != nil {
+		t.Fatalf("GetPets failed: %v", err)
+	}
+
+	if len(pets) == 0 {
+		t.Errorf("GetPets devolvió 0 mascotas, esperaba al menos una.")
+	}
+
+}
+
+func TestPets(t *testing.T) {
+	var id string
+	store := setupTestDB()
+	defer store.db.Close()
+
+	t.Run("should create a new pet", func(t *testing.T) {
+		breeds, _ := store.GetBreeds()
+		newPet := types.Pet{ID: "", Name: "Fido", Birth: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), Breed: breeds[0]}
+		petWithID, err := store.CreatePet(newPet.Name, newPet.Birth, newPet.Breed.ID)
+
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			t.Errorf("error in creating new pet:'%v'", err)
+		}
+
+		id = petWithID.ID
+	})
+
+	t.Run("should return the new created pet by id", func(t *testing.T) {
+		_, err := store.GetPetByID(id)
+
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			t.Errorf("error new pet not found:'%v'", err)
+		}
+	})
+
+	t.Run("should delete the new created pet by id", func(t *testing.T) {
+		err := store.DeletePet(id)
+
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			t.Errorf("error new pet not found:'%v'", err)
 		}
 	})
 
