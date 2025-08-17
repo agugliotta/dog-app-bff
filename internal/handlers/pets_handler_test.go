@@ -132,7 +132,7 @@ func TestGetPetByIDHandler(t *testing.T) {
 	t.Run("found", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/api/v1/pets/p1", nil)
 		rec := httptest.NewRecorder()
-		handler.GetPetByIDHandler(rec, req)
+		handler.getPetByIDHandler(rec, req)
 		if rec.Code != http.StatusOK {
 			t.Errorf("expected 200, got %d", rec.Code)
 		}
@@ -148,7 +148,7 @@ func TestGetPetByIDHandler(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/api/v1/pets/doesnotexist", nil)
 		rec := httptest.NewRecorder()
-		handler.GetPetByIDHandler(rec, req)
+		handler.getPetByIDHandler(rec, req)
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("expected 404, got %d", rec.Code)
 		}
