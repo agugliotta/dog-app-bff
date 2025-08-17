@@ -23,6 +23,6 @@ func RegisterRoutes(router *http.ServeMux, bs store.BreedStore, ps store.PetStor
 	// Si es "/api/v1/breeds/algo", GetBreedByIDHandler la maneja.
 	router.HandleFunc("/api/v1/breeds/", breedHandler.GetBreedByIDHandler)
 
-	router.HandleFunc("/api/v1/pets/", petHandler.GetPetByIDHandler)
+	router.HandleFunc("/api/v1/pets/", petHandler.PetsHandlerByID)
 	router.HandleFunc("/api/v1/pets", petHandler.PetsHandler)
 }

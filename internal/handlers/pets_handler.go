@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/agugliotta/dog-app-bff/internal/store"
@@ -40,7 +41,7 @@ func (ph *PetHandler) getPetsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ph *PetHandler) GetPetByIDHandler(w http.ResponseWriter, r *http.Request) {
+func (ph *PetHandler) getPetByIDHandler(w http.ResponseWriter, r *http.Request) {
 	id := path.Base(r.URL.Path)
 	pet, err := ph.petStore.GetPetByID(id)
 	if err != nil {
@@ -96,6 +97,55 @@ func (ph *PetHandler) createPetHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated) // El código 201 es estándar para 'Created'.
 	if err := json.NewEncoder(w).Encode(newPet); err != nil {
 		log.Printf("Error encoding response for created pet: %v", err)
+	}
+}
+
+func (ph *PetHandler) deletePetById(w http.ResponseWriter, r *http.Request) {
+	// We already have a robust way to get the ID from our previous handler,
+	// but for simplicity, you can also do it here directly.
+	id := strings.TrimPrefix(r.URL.Path, "/api/v1/pets/")
+	id = strings.TrimSuffix(id, "/")
+
+	if id == "" {
+		http.Error(w, "Pet ID is required", http.StatusBadRequest)
+		return
+	}
+
+	err := ph.petStore.DeletePet(id)
+
+	if err != nil {
+		// Correctly handle the two main error cases
+		if errors.Is(err, store.ErrNotFound) {
+			http.Error(w, "Pet not found", http.StatusNotFound)
+			return
+		}
+		// Catch all other server-side errors
+		log.Printf("Error deleting pet with ID %s: %v", id, err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Success response
+	// The idiomatic way for a successful DELETE is 204 No Content
+	w.WriteHeader(http.StatusNoContent)
+
+	// If you wanted to send a 200 OK response with a message:
+	/*
+	   w.WriteHeader(http.StatusOK)
+	   w.Write([]byte("Pet deleted successfully"))
+	*/
+}
+
+func (ph *PetHandler) PetsHandlerByID(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		ph.getPetByIDHandler(w, r)
+
+	case http.MethodDelete:
+		ph.deletePetById(w, r)
+
+	default:
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
 }
 
