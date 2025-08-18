@@ -60,7 +60,7 @@ jobs:
         PGPASSWORD: ${{ env.DOCKER_DB_PASSWORD }}
       run: |
         # Use 'localhost' as the host for psql
-        psql -h localhost -U postgres -d ${{ env.DOCKER_DB_NAME }} -v ON_ERROR_STOP=1 -f /init.sql
+        psql -h localhost -U postgres -d ${{ env.DOCKER_DB_NAME }} -v ON_ERROR_STOP=1 -f init.sql
     
     # 4. Run the integration tests
     - name: Test - Integration

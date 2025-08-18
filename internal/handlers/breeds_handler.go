@@ -47,10 +47,10 @@ func (h *BreedHandler) GetBreedsHandler(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (h *BreedHandler) GetBreedByIDHandler(w http.ResponseWriter, r *http.Request) {
-	id := path.Base(r.URL.Path)
+func (h *BreedHandler) GetBreedBySlugHandler(w http.ResponseWriter, r *http.Request) {
+	slug := path.Base(r.URL.Path)
 
-	breed, err := h.breedStore.GetBreedByID(id)
+	breed, err := h.breedStore.GetBreedBySlug(slug)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			http.Error(w, "Breed not found", http.StatusNotFound)

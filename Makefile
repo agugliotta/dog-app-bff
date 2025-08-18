@@ -63,7 +63,7 @@ db-setup: db-stop db-start
 	@echo "Configurando la base de datos..."
 	@sleep 2
 	@docker cp init.sql $(DB_CONTAINER):/init.sql
-	@docker exec -i $(DB_CONTAINER) psql -U postgres -d $(DB_NAME) -v ON_ERROR_STOP=1 -f /init.sql
+	@docker exec -i $(DB_CONTAINER) psql -U postgres -d $(DB_NAME) -v ON_ERROR_STOP=1 -f init.sql
 	@echo "Base de datos configurada."
 
 # Inicia el contenedor de PostgreSQL
