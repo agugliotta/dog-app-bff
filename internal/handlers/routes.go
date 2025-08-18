@@ -21,7 +21,7 @@ func RegisterRoutes(router *http.ServeMux, bs store.BreedStore, ps store.PetStor
 	// La barra final es CRUCIAL para que ServeMux capture cualquier cosa después.
 	// Nota: Si una solicitud es exactamente "/api/v1/breeds", GetBreedsHandler la maneja.
 	// Si es "/api/v1/breeds/algo", GetBreedByIDHandler la maneja.
-	router.HandleFunc("/api/v1/breeds/", breedHandler.GetBreedByIDHandler)
+	router.HandleFunc("/api/v1/breeds/", breedHandler.GetBreedBySlugHandler)
 
 	router.HandleFunc("/api/v1/pets/", petHandler.PetsHandlerByID)
 	router.HandleFunc("/api/v1/pets", petHandler.PetsHandler)

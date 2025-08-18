@@ -96,6 +96,15 @@ func (m *BreedStoreMock) GetBreeds() ([]types.Breed, error) {
 	return m.breeds, nil
 }
 
+func (m *BreedStoreMock) GetBreedBySlug(slug string) (*types.Breed, error) {
+	for _, b := range m.breeds {
+		if b.Slug == slug {
+			return &b, nil
+		}
+	}
+	return nil, store.ErrNotFound
+}
+
 func TestGetPetsHandler(t *testing.T) {
 	breeds := []types.Breed{{ID: "b1", Name: "Breed1", Temperament: "T1", Origin: "O1"}}
 	pets := []types.Pet{{ID: "p1", Name: "Fido", Birth: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), Breed: breeds[0]}}

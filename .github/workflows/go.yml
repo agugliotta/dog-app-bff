@@ -60,31 +60,7 @@ jobs:
         PGPASSWORD: ${{ env.DOCKER_DB_PASSWORD }}
       run: |
         # Use 'localhost' as the host for psql
-        psql -h localhost -U postgres -d ${{ env.DOCKER_DB_NAME }} -v ON_ERROR_STOP=1 <<EOF
-        DROP TABLE IF EXISTS pets CASCADE;
-        DROP TABLE IF EXISTS breeds CASCADE;
-        CREATE TABLE breeds (
-            id VARCHAR(255) PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            temperament TEXT,
-            origin VARCHAR(255)
-        );
-        CREATE TABLE pets (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name VARCHAR(255) NOT NULL,
-            birth DATE NOT NULL,
-            breed_id VARCHAR(255) NOT NULL REFERENCES breeds(id)
-        );
-        INSERT INTO breeds (id, name, temperament, origin) VALUES
-        ('golden-retriever', 'Golden Retriever', 'Friendly, Intelligent, Devoted', 'Scotland'),
-        ('german-shepherd', 'German Shepherd', 'Intelligent, Obedient, Courageous', 'Germany'),
-        ('poodle', 'Poodle', 'Intelligent, Proud, Active', 'Germany/France'),
-        ('labrador-retriever', 'Labrador Retriever', 'Outgoing, Even-tempered, Gentle', 'Canada'),
-        ('bulldog', 'Bulldog', 'Docile, Willful, Friendly', 'England');
-        INSERT INTO pets (name, birth, breed_id) VALUES
-        ('Buddy', '2022-05-10', 'golden-retriever'),
-        ('Max', '2023-01-20', 'german-shepherd');
-        EOF
+        psql -h localhost -U postgres -d ${{ env.DOCKER_DB_NAME }} -v ON_ERROR_STOP=1 -f init.sql
     
     # 4. Run the integration tests
     - name: Test - Integration

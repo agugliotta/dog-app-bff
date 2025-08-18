@@ -14,15 +14,15 @@ type StoreMock struct{}
 
 func (sm *StoreMock) GetBreeds() ([]types.Breed, error) {
 	return []types.Breed{
-		{ID: "mock-breed-1", Name: "Mock Poodle", Temperament: "Mock Temp 1", Origin: "Mockland"},
-		{ID: "mock-breed-2", Name: "Mock Bulldog", Temperament: "Mock Temp 2", Origin: "Mockland"},
+		{ID: "mock-breed-1", Name: "Mock Poodle", Temperament: "Mock Temp 1", Origin: "Mockland", Slug: "mock-poodle"},
+		{ID: "mock-breed-2", Name: "Mock Bulldog", Temperament: "Mock Temp 2", Origin: "Mockland", Slug: "mock-bulldog"},
 	}, nil
 }
 
 // GetBreedByID implementa el método GetBreedByID de la interfaz BreedStore para el mock.
 func (m *StoreMock) GetBreedByID(id string) (*types.Breed, error) {
 	if id == "mock-breed-1" {
-		return &types.Breed{ID: "mock-breed-1", Name: "Mock Poodle", Temperament: "Mock Temp 1", Origin: "Mockland"}, nil
+		return &types.Breed{ID: "mock-breed-1", Name: "Mock Poodle", Temperament: "Mock Temp 1", Origin: "Mockland", Slug: "mock-poodle"}, nil
 	}
 	if id == "non-existent-id" {
 		return nil, store.ErrNotFound // ¡Ahora devuelve tu error sentinel!
@@ -32,6 +32,16 @@ func (m *StoreMock) GetBreedByID(id string) (*types.Breed, error) {
 	//    return nil, errors.New("simulated internal store error")
 	// }
 	return nil, store.ErrNotFound // Default para IDs no definidos en el mock
+}
+
+func (m *StoreMock) GetBreedBySlug(slug string) (*types.Breed, error) {
+	if slug == "mock-poodle" {
+		return &types.Breed{ID: "mock-breed-1", Name: "Mock Poodle", Temperament: "Mock Temp 1", Origin: "Mockland", Slug: "mock-poodle"}, nil
+	}
+	if slug == "non-existent-slug" {
+		return nil, store.ErrNotFound
+	}
+	return nil, store.ErrNotFound
 }
 
 func TestGetBreedsHandler(t *testing.T) {
@@ -69,17 +79,17 @@ func TestGetBreedsHandler(t *testing.T) {
 }
 
 func TestGetBreedByIDHandler(t *testing.T) {
-	t.Run("should return breed for existing ID", func(t *testing.T) {
+	t.Run("should return breed for existing Slug", func(t *testing.T) {
 		var breed types.Breed
 		handler := NewBreedHandler(&StoreMock{})
 		recorder := httptest.NewRecorder()
-		request, err := http.NewRequest("GET", "/api/v1/breeds/mock-breed-1", nil)
+		request, err := http.NewRequest("GET", "/api/v1/breeds/mock-poodle", nil)
 
 		if err != nil {
 			t.Fatalf("Error en el request")
 		}
 
-		handler.GetBreedByIDHandler(recorder, request)
+		handler.GetBreedBySlugHandler(recorder, request)
 
 		if recorder.Code != http.StatusOK {
 			t.Errorf("The Request was unsuccesful")
@@ -94,10 +104,10 @@ func TestGetBreedByIDHandler(t *testing.T) {
 			t.Errorf("Error al decodificar la respuesta JSON: %v", err)
 		}
 
-		expectedID := "mock-breed-1"
+		expectedSlug := "mock-poodle"
 		expectedName := "Mock Poodle"
-		if breed.ID != expectedID {
-			t.Errorf("ID de raza incorrecto: esperado '%s', obtenido '%s'", expectedID, breed.ID)
+		if breed.Slug != expectedSlug {
+			t.Errorf("Slug de raza incorrecto: esperado '%s', obtenido '%s'", expectedSlug, breed.Slug)
 		}
 		if breed.Name != expectedName {
 			t.Errorf("Nombre de raza incorrecto: esperado '%s', obtenido '%s'", expectedName, breed.Name)
@@ -112,7 +122,7 @@ func TestGetBreedByIDHandler(t *testing.T) {
 			t.Fatalf("Error al crear la solicitud: %v", err)
 		}
 
-		handler.GetBreedByIDHandler(recorder, request)
+		handler.GetBreedBySlugHandler(recorder, request)
 
 		if recorder.Code != http.StatusNotFound { // Verifica el 404
 			t.Errorf("Código de estado incorrecto para ID no existente: esperado %d, obtenido %d", http.StatusNotFound, recorder.Code)

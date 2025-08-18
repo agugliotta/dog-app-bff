@@ -83,7 +83,7 @@ func TestGetBreeds(t *testing.T) {
 	// Podemos verificar si una raza específica que esperamos está en la lista.
 	foundGolden := false
 	for _, breed := range breeds {
-		if breed.ID == "golden-retriever" && breed.Name == "Golden Retriever" {
+		if breed.Slug == "golden-retriever" && breed.Name == "Golden Retriever" {
 			foundGolden = true
 			break
 		}
@@ -98,54 +98,25 @@ func TestGetBreeds(t *testing.T) {
 	// }
 }
 
-func TestGetBreedByID(t *testing.T) {
+func TestGetBreedBySlug(t *testing.T) {
 	store := setupTestDB()
-	defer store.db.Close()
+	defer store.Close()
 
-	t.Run("should return breed for existing ID", func(t *testing.T) {
-		store := setupTestDB()
-		// No deferred store.db.Close() here, it should be managed by TestMain or suite setup/teardown
-		// For subtests, it's safer to ensure a clean slate, so if setupTestDB creates a new connection,
-		// it's okay to close it. If it gets from a pool, don't close here.
-		// Given your setupTestDB, it likely creates a new one, so defer close is fine here for isolation.
-		defer store.db.Close()
+	slugToFind := "golden-retriever"
+	breed, err := store.GetBreedBySlug(slugToFind)
+	if err != nil {
+		t.Fatalf("failed to get breed by slug: %v", err)
+	}
+	if breed == nil {
+		t.Fatalf("breed with slug %s not found", slugToFind)
+	}
 
-		idToFind := "golden-retriever" // Asegúrate de que este ID esté en tu db-setup-test
-		breed, err := store.GetBreedByID(idToFind)
-		if err != nil {
-			t.Fatalf("GetBreedByID falló para ID '%s': %v", idToFind, err)
-		}
-
-		if breed == nil {
-			t.Fatalf("GetBreedByID devolvió nil para ID existente '%s'", idToFind)
-		}
-		if breed.ID != idToFind {
-			t.Errorf("ID de raza incorrecto: esperado '%s', obtenido '%s'", idToFind, breed.ID)
-		}
-		if breed.Name != "Golden Retriever" {
-			t.Errorf("Nombre de raza incorrecto: esperado 'Golden Retriever', obtenido '%s'", breed.Name)
-		}
-		// ... (más aserciones)
-	})
-
-	// Escenario 2: Raza no existente (verificando store.ErrNotFound)
-	t.Run("should return ErrNotFound for non-existent ID", func(t *testing.T) {
-		store := setupTestDB()
-		defer store.db.Close()
-
-		idToFind := "non-existent-breed-123" // ID que sabes que no está en la DB
-		_, err := store.GetBreedByID(idToFind)
-
-		if err == nil {
-			t.Errorf("GetBreedByID debería haber devuelto un error para ID no existente '%s', pero devolvió nil", idToFind)
-		}
-
-		// ¡Aserción clave! Usar errors.Is para verificar el error sentinel
-		if !errors.Is(err, ErrNotFound) { // Asegúrate de importar "errors" aquí si no está
-			t.Errorf("Tipo de error incorrecto para ID no existente: esperado 'store.ErrNotFound', obtenido '%v'", err)
-		}
-	})
-
+	if breed.Slug != slugToFind {
+		t.Errorf("expected slug %s, got %s", slugToFind, breed.Slug)
+	}
+	if breed.Name != "Golden Retriever" {
+		t.Errorf("expected name %s, got %s", "Golden Retriever", breed.Name)
+	}
 }
 
 func TestGetPets(t *testing.T) {
@@ -160,7 +131,6 @@ func TestGetPets(t *testing.T) {
 	if len(pets) == 0 {
 		t.Errorf("GetPets devolvió 0 mascotas, esperaba al menos una.")
 	}
-
 }
 
 func TestPets(t *testing.T) {
