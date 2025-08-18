@@ -7,6 +7,7 @@ type Breed struct {
 	Name        string `json:"name"`
 	Temperament string `json:"temperament"`
 	Origin      string `json:"origin"`
+	Slug        string `json:"slug"`
 }
 
 type Pet struct {

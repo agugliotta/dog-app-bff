@@ -13,6 +13,7 @@ var (
 )
 
 type BreedStore interface {
+	GetBreedBySlug(slug string) (*types.Breed, error)
 	GetBreedByID(id string) (*types.Breed, error)
 	GetBreeds() ([]types.Breed, error)
 }

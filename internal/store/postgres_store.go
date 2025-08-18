@@ -38,7 +38,7 @@ func (s *PostgresStore) Close() error {
 
 // BREEDS
 func (s *PostgresStore) GetBreeds() ([]types.Breed, error) {
-	rows, err := s.db.Query("SELECT id, name, temperament, origin FROM breeds")
+	rows, err := s.db.Query("SELECT id, name, temperament, origin, slug FROM breeds")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query breeds: %w", err)
 	}
@@ -47,7 +47,7 @@ func (s *PostgresStore) GetBreeds() ([]types.Breed, error) {
 	var breeds []types.Breed
 	for rows.Next() {
 		var breed types.Breed
-		if err := rows.Scan(&breed.ID, &breed.Name, &breed.Temperament, &breed.Origin); err != nil {
+		if err := rows.Scan(&breed.ID, &breed.Name, &breed.Temperament, &breed.Origin, &breed.Slug); err != nil {
 			return nil, fmt.Errorf("failed to scan breed: %w", err)
 		}
 		breeds = append(breeds, breed)
@@ -62,7 +62,7 @@ func (s *PostgresStore) GetBreeds() ([]types.Breed, error) {
 
 func (s *PostgresStore) GetBreedByID(id string) (*types.Breed, error) {
 	var breed types.Breed
-	err := s.db.QueryRow("SELECT id, name, temperament, origin FROM breeds WHERE id=$1", id).Scan(&breed.ID, &breed.Name, &breed.Temperament, &breed.Origin)
+	err := s.db.QueryRow("SELECT id, name, temperament, origin, slug FROM breeds WHERE id=$1", id).Scan(&breed.ID, &breed.Name, &breed.Temperament, &breed.Origin, &breed.Slug)
 
 	switch err { // El switch ya manejará los diferentes tipos de error de 'err'
 	case sql.ErrNoRows:
@@ -73,6 +73,23 @@ func (s *PostgresStore) GetBreedByID(id string) (*types.Breed, error) {
 	default: // Cualquier otro tipo de error de la base de datos
 		return nil, fmt.Errorf("query error for breed ID %s: %w", id, err)
 	}
+}
+
+func (s *PostgresStore) GetBreedBySlug(slug string) (*types.Breed, error) {
+	query := `SELECT id, name, temperament, origin, slug FROM breeds WHERE slug = $1`
+
+	row := s.db.QueryRow(query, slug)
+
+	var breed types.Breed
+	err := row.Scan(&breed.ID, &breed.Name, &breed.Temperament, &breed.Origin, &breed.Slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	return &breed, nil
 }
 
 // PETS

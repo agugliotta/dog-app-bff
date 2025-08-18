@@ -1,18 +1,17 @@
-# Define variables para facilitar la modificación
+# Define variables para el proyecto
 PROJECT_NAME := dog-app-bff
-DOCKER_DB_CONTAINER := $(PROJECT_NAME)-postgres-test
-DOCKER_DB_PASSWORD := mysecretpassword
-DOCKER_DB_NAME := dog_app_db_test
-DB_PORT := 5432
 GO_APP_PORT := 8080
 
-# String de conexión a la base de datos para tests (usando la DB de test)
-TEST_DB_CONN_STRING := "host=localhost port=$(DB_PORT) user=postgres password=$(DOCKER_DB_PASSWORD) dbname=$(DOCKER_DB_NAME) sslmode=disable"
+# --- Variables del Entorno Único (para Tests y Desarrollo Local) ---
+DB_CONTAINER := $(PROJECT_NAME)-postgres-test
+DB_PASSWORD := mysecretpassword
+DB_NAME := dog_app_db_test
+DB_PORT := 5432
+DB_CONN_STRING := "host=localhost port=$(DB_PORT) user=postgres password=$(DB_PASSWORD) dbname=$(DB_NAME) sslmode=disable"
 
-# .PHONY: all clean run build test test-integration test-unit db-start db-stop db-clean db-setup-test test-integration-auto-db # Puedes listar todos los targets, o solo los públicos
-.PHONY: all clean run build test test-unit test-integration db-start db-stop db-clean db-setup-test
+.PHONY: all clean run-local run build test test-unit test-integration db-setup-if-needed db-setup db-start db-stop
 
-all: build run
+all: build run-local
 
 # Limpia los binarios y módulos Go
 clean:
@@ -21,10 +20,10 @@ clean:
 	@go clean -modcache
 	@echo "Limpieza de Go finalizada."
 
-# Ejecuta la aplicación Go (para desarrollo, no tests)
-run: build
-	@echo "Ejecutando la aplicación Go..."
-	@DB_CONN_STRING=$(TEST_DB_CONN_STRING) go run ./cmd/api/main.go
+# --- Target principal para Ejecutar la App en Local ---
+run-local: build db-setup-if-needed
+	@echo "Ejecutando la aplicación Go en el entorno de desarrollo..."
+	@DB_CONN_STRING=$(DB_CONN_STRING) go run ./cmd/api/main.go
 
 # Compila la aplicación Go
 build:
@@ -32,74 +31,55 @@ build:
 	@go build -o ./bin/$(PROJECT_NAME) ./cmd/api/main.go
 	@echo "Compilación finalizada. Binario en ./bin/$(PROJECT_NAME)"
 
-# Ejecuta todos los tests (unidad e integración, asume que la DB de test está corriendo)
-# Ahora 'test-integration' se encargará de la DB automáticamente
+# Ejecuta todos los tests (unidad e integración)
 test: test-unit test-integration
 
 # Ejecuta solo los tests unitarios (que no requieren DB)
 test-unit:
 	@echo "Ejecutando tests unitarios..."
 	@go test -v ./internal/handlers/...
-	@go test -v ./internal/types/... # si tuvieras tests aquí
+	@go test -v ./internal/types/...
 	@echo "Tests unitarios finalizados."
 
-# --- Nuevo Target para Tests de Integración que Autogestiona la DB ---
-# Este target ahora depende de db-setup-test para iniciar y configurar la DB.
-# Y usa 'db-teardown-test' para limpiar al final, incluso si los tests fallan.
-test-integration: db-setup-test
-	@echo "Iniciando tests de integración con DB gestionada automáticamente..."
-	@trap 'make db-stop' EXIT; TEST_DB_CONN_STRING=$(TEST_DB_CONN_STRING) go test -v ./internal/store/...
+# --- Target para Tests de Integración que Autogestiona la DB ---
+test-integration: db-setup-if-needed
+	@echo "Iniciando tests de integración con la DB gestionada automáticamente..."
+	@trap 'make db-stop' EXIT; DB_CONN_STRING=$(DB_CONN_STRING) go test -v ./internal/store/...
 	@echo "Tests de integración finalizados."
 
-# --- Comandos relacionados con Docker y la Base de Datos de Test ---
+# --- Comandos relacionados con Docker y la Base de Datos ---
 
-# Inicia el contenedor de PostgreSQL para tests
-db-start:
-	@echo "Iniciando contenedor Docker para PostgreSQL de test..."
-	@docker run --name $(DOCKER_DB_CONTAINER) \
-		-e POSTGRES_PASSWORD=$(DOCKER_DB_PASSWORD) \
-		-e POSTGRES_DB=$(DOCKER_DB_NAME) \
-		-p $(DB_PORT):5432 \
-		-d postgres:latest
-	@echo "Esperando que PostgreSQL esté listo (esto puede tomar un momento)..."
-	# Pequeño hack para esperar a que la DB esté lista. En producción usarías una tool como wait-for-it.sh
-	@sleep 5
-	@echo "Contenedor de PostgreSQL de test iniciado."
+db-setup-if-needed:
+	@echo "Comprobando si el contenedor de la base de datos está activo..."
+	@if ! docker ps -f name=$(DB_CONTAINER) | grep -q $(DB_CONTAINER); then \
+		echo "El contenedor no está activo. Iniciándolo y configurándolo..."; \
+		make db-setup; \
+	else \
+		echo "El contenedor ya está activo. Omitiendo el inicio."; \
+	fi
 
-# Detiene el contenedor de PostgreSQL para tests
-db-stop:
-	@echo "Deteniendo contenedor Docker de PostgreSQL de test..."
-	@docker stop $(DOCKER_DB_CONTAINER) > /dev/null 2>&1 || true # Redirige salida para no ver "no existe"
-	@docker rm $(DOCKER_DB_CONTAINER) > /dev/null 2>&1 || true
-	@echo "Contenedor de PostgreSQL de test detenido y eliminado."
-
-# Este target se asegura que la DB esté limpia y configurada para cada ejecución de test-integration
-db-setup-test: db-stop db-start
-	@echo "Configurando la base de datos de test..."
+# Inicia y configura la DB
+db-setup: db-stop db-start
+	@echo "Configurando la base de datos..."
 	@sleep 2
-	@docker exec -i $(DOCKER_DB_CONTAINER) psql -U postgres -d $(DOCKER_DB_NAME) -c " \
-		DROP TABLE IF EXISTS pets CASCADE; \
-		DROP TABLE IF EXISTS breeds CASCADE; \
-		CREATE TABLE breeds ( \
-			id VARCHAR(255) PRIMARY KEY, \
-			name VARCHAR(255) NOT NULL, \
-			temperament TEXT, \
-			origin VARCHAR(255) \
-		); \
-		CREATE TABLE pets ( \
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(), \
-			name VARCHAR(255) NOT NULL, \
-			birth DATE NOT NULL, \
-			breed_id VARCHAR(255) NOT NULL REFERENCES breeds(id) \
-		); \
-		INSERT INTO breeds (id, name, temperament, origin) VALUES \
-		('golden-retriever', 'Golden Retriever', 'Friendly, Intelligent, Devoted', 'Scotland'), \
-		('german-shepherd', 'German Shepherd', 'Intelligent, Obedient, Courageous', 'Germany'), \
-		('poodle', 'Poodle', 'Intelligent, Proud, Active', 'Germany/France'), \
-		('labrador-retriever', 'Labrador Retriever', 'Outgoing, Even-tempered, Gentle', 'Canada'), \
-		('bulldog', 'Bulldog', 'Docile, Willful, Friendly', 'England'); \
-		INSERT INTO pets (name, birth, breed_id) VALUES \
-		('Buddy', '2022-05-10', 'golden-retriever'), \
-		('Max', '2023-01-20', 'german-shepherd'); \
-	"
-	@echo "Base de datos de test configurada."
+	@docker cp init.sql $(DB_CONTAINER):/init.sql
+	@docker exec -i $(DB_CONTAINER) psql -U postgres -d $(DB_NAME) -v ON_ERROR_STOP=1 -f /init.sql
+	@echo "Base de datos configurada."
+
+# Inicia el contenedor de PostgreSQL
+db-start:
+	@echo "Iniciando contenedor Docker para PostgreSQL..."
+	@docker run --name $(DB_CONTAINER) \
+        -e POSTGRES_PASSWORD=$(DB_PASSWORD) \
+        -e POSTGRES_DB=$(DB_NAME) \
+        -p $(DB_PORT):5432 \
+        -d postgres:latest
+	@echo "Esperando que PostgreSQL esté listo..."
+	@sleep 5
+
+# Detiene el contenedor de PostgreSQL
+db-stop:
+	@echo "Deteniendo contenedor Docker de PostgreSQL..."
+	@docker stop $(DB_CONTAINER) > /dev/null 2>&1 || true
+	@docker rm $(DB_CONTAINER) > /dev/null 2>&1 || true
+	@echo "Contenedor de PostgreSQL detenido y eliminado."
