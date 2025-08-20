@@ -1,28 +1,20 @@
 package handlers
 
 import (
-	"net/http"
-
 	"github.com/agugliotta/dog-app-bff/internal/store"
+	"github.com/gin-gonic/gin"
 )
 
-// RegisterRoutes es la función principal para registrar todos los handlers con el router HTTP.
-// Recibe el http.ServeMux estándar y el store de la aplicación.
-func RegisterRoutes(router *http.ServeMux, bs store.BreedStore, ps store.PetStore) {
-	// Crea una instancia del handler de razas, inyectando el store.
+func RegisterRoutes(router *gin.Engine, bs store.BreedStore, ps store.PetStore) {
 	breedHandler := NewBreedHandler(bs)
 	petHandler := NewPetHandler(ps, bs)
+	groupV2 := router.Group("/api/v1")
 
-	// Registra el handler para la ruta /api/v1/breeds.
-	// Como usamos http.ServeMux, no especificamos métodos aquí, se hará dentro del handler si es necesario.
-	router.HandleFunc("/api/v1/breeds", breedHandler.GetBreedsHandler)
+	groupV2.GET("/breeds", breedHandler.GetBreedsHandler)
+	groupV2.GET("/breeds/:slug", breedHandler.GetBreedBySlugHandler)
 
-	// Ruta para obtener una raza por ID
-	// La barra final es CRUCIAL para que ServeMux capture cualquier cosa después.
-	// Nota: Si una solicitud es exactamente "/api/v1/breeds", GetBreedsHandler la maneja.
-	// Si es "/api/v1/breeds/algo", GetBreedByIDHandler la maneja.
-	router.HandleFunc("/api/v1/breeds/", breedHandler.GetBreedBySlugHandler)
-
-	router.HandleFunc("/api/v1/pets/", petHandler.PetsHandlerByID)
-	router.HandleFunc("/api/v1/pets", petHandler.PetsHandler)
+	groupV2.GET("/pets", petHandler.GetPetsHandler)
+	groupV2.GET("/pets/:id", petHandler.GetPetByIDHandler)
+	groupV2.DELETE("/pets/:id", petHandler.DeletePetById)
+	groupV2.POST("/pets", petHandler.CreatePetHandler)
 }

@@ -1,13 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
-	"path"
 
 	"github.com/agugliotta/dog-app-bff/internal/store"
+	"github.com/gin-gonic/gin"
 )
 
 // BreedHandler es un struct que contendrá las dependencias (como el store) necesarias para los handlers de razas.
@@ -26,48 +25,30 @@ func NewBreedHandler(bs store.BreedStore) *BreedHandler {
 
 // GetBreedsHandler maneja las solicitudes HTTP para obtener la lista de razas.
 // Es un método en el BreedHandler, lo que nos da acceso a 'h.breedStore'.
-func (h *BreedHandler) GetBreedsHandler(w http.ResponseWriter, r *http.Request) {
-	// Obtenemos las razas desde nuestro store.
+func (h *BreedHandler) GetBreedsHandler(c *gin.Context) {
 	breeds, err := h.breedStore.GetBreeds()
 	if err != nil {
 		log.Printf("Error al obtener razas desde el store: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error", "message": err.Error()})
 		return
 	}
 
-	// Configura el encabezado Content-Type para indicar que la respuesta es JSON.
-	w.Header().Set("Content-Type", "application/json")
-
-	// Codifica la slice de razas a JSON y la escribe en la respuesta HTTP.
-	err = json.NewEncoder(w).Encode(breeds)
-	if err != nil {
-		log.Printf("Error al codificar razas a JSON: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	c.JSON(http.StatusOK, breeds)
 }
 
-func (h *BreedHandler) GetBreedBySlugHandler(w http.ResponseWriter, r *http.Request) {
-	slug := path.Base(r.URL.Path)
+func (h *BreedHandler) GetBreedBySlugHandler(c *gin.Context) {
+	slug := c.Param("slug")
 
 	breed, err := h.breedStore.GetBreedBySlug(slug)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			http.Error(w, "Breed not found", http.StatusNotFound)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Breed not found", "message": err.Error()})
 			return
 		} else {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error", "message": err.Error()})
 			return
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	err = json.NewEncoder(w).Encode(breed)
-	if err != nil {
-		log.Printf("Error al codificar raza a JSON: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
+	c.JSON(http.StatusOK, breed)
 }

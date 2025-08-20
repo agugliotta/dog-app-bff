@@ -1,16 +1,14 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
-	"path"
-	"strings"
 	"time"
 
 	"github.com/agugliotta/dog-app-bff/internal/store"
 	"github.com/agugliotta/dog-app-bff/internal/types"
+	"github.com/gin-gonic/gin"
 )
 
 type PetHandler struct {
@@ -25,89 +23,67 @@ func NewPetHandler(ps store.PetStore, bs store.BreedStore) *PetHandler {
 	}
 }
 
-func (ph *PetHandler) getPetsHandler(w http.ResponseWriter, r *http.Request) {
+func (ph *PetHandler) GetPetsHandler(c *gin.Context) {
 	pets, err := ph.petStore.GetPets()
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error", "message": err.Error()})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	err = json.NewEncoder(w).Encode(pets)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	c.JSON(http.StatusOK, pets)
 }
 
-func (ph *PetHandler) getPetByIDHandler(w http.ResponseWriter, r *http.Request) {
-	id := path.Base(r.URL.Path)
+func (ph *PetHandler) GetPetByIDHandler(c *gin.Context) {
+	id := c.Param("id")
 	pet, err := ph.petStore.GetPetByID(id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			http.Error(w, "Pet not found", http.StatusNotFound)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Pet not found"})
 			return
 		} else {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 			return
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	err = json.NewEncoder(w).Encode(pet)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	c.JSON(http.StatusOK, pet)
 }
 
-func (ph *PetHandler) createPetHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+func (ph *PetHandler) CreatePetHandler(c *gin.Context) {
 	var requestBody types.CreatePetRequest
-	err := json.NewDecoder(r.Body).Decode(&requestBody)
 
-	if err != nil {
-		http.Error(w, "Error decoding the body of the request", http.StatusBadRequest)
+	if err := c.BindJSON(&requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	_, err = ph.breedStore.GetBreedByID(requestBody.BreedID)
+	_, err := ph.breedStore.GetBreedByID(requestBody.BreedID)
 	if err != nil {
-		http.Error(w, "Error at checking the breed", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error at checking the breed"})
 		return
 	}
 
 	birth, err := time.Parse("2006-01-02", requestBody.Birth)
 	if err != nil {
-		http.Error(w, "Bad date of birth format. Use YYYY-MM-DD", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad date of birth format. Use YYYY-MM-DD"})
 		return
 	}
 
 	newPet, err := ph.petStore.CreatePet(requestBody.Name, birth, requestBody.BreedID)
 	if err != nil {
 		log.Printf("Error creating pet in store: %v", err)
-		http.Error(w, "Error creating pet", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating pet"})
 		return
 	}
 
-	// 5. Enviar la respuesta exitosa.
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated) // El código 201 es estándar para 'Created'.
-	if err := json.NewEncoder(w).Encode(newPet); err != nil {
-		log.Printf("Error encoding response for created pet: %v", err)
-	}
+	c.JSON(http.StatusCreated, newPet)
 }
 
-func (ph *PetHandler) deletePetById(w http.ResponseWriter, r *http.Request) {
-	// We already have a robust way to get the ID from our previous handler,
-	// but for simplicity, you can also do it here directly.
-	id := strings.TrimPrefix(r.URL.Path, "/api/v1/pets/")
-	id = strings.TrimSuffix(id, "/")
+func (ph *PetHandler) DeletePetById(c *gin.Context) {
+	id := c.Param("id")
 
 	if id == "" {
-		http.Error(w, "Pet ID is required", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Pet ID is required"})
 		return
 	}
 
@@ -116,48 +92,14 @@ func (ph *PetHandler) deletePetById(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Correctly handle the two main error cases
 		if errors.Is(err, store.ErrNotFound) {
-			http.Error(w, "Pet not found", http.StatusNotFound)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Pet not found", "message": err.Error()})
 			return
 		}
 		// Catch all other server-side errors
 		log.Printf("Error deleting pet with ID %s: %v", id, err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error", "message": err.Error()})
 		return
 	}
 
-	// Success response
-	// The idiomatic way for a successful DELETE is 204 No Content
-	w.WriteHeader(http.StatusNoContent)
-
-	// If you wanted to send a 200 OK response with a message:
-	/*
-	   w.WriteHeader(http.StatusOK)
-	   w.Write([]byte("Pet deleted successfully"))
-	*/
-}
-
-func (ph *PetHandler) PetsHandlerByID(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		ph.getPetByIDHandler(w, r)
-
-	case http.MethodDelete:
-		ph.deletePetById(w, r)
-
-	default:
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (ph *PetHandler) PetsHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		ph.getPetsHandler(w, r)
-
-	case http.MethodPost:
-		ph.createPetHandler(w, r)
-
-	default:
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-	}
+	c.JSON(http.StatusNoContent, nil)
 }
