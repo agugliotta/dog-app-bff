@@ -9,46 +9,44 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// BreedHandler es un struct que contendrá las dependencias (como el store) necesarias para los handlers de razas.
+// BreedHandler contains dependencies for breed-related handlers.
 type BreedHandler struct {
 	breedStore store.BreedStore
 }
 
-// NewBreedHandler crea e inicializa un nuevo BreedHandler.
-// Es un constructor que nos permite "inyectar" el store.
+// NewBreedHandler initializes a new BreedHandler with the given store.
 func NewBreedHandler(bs store.BreedStore) *BreedHandler {
 	return &BreedHandler{
 		breedStore: bs,
 	}
-
 }
 
-// GetBreedsHandler maneja las solicitudes HTTP para obtener la lista de razas.
-// Es un método en el BreedHandler, lo que nos da acceso a 'h.breedStore'.
+// GetBreedsHandler handles HTTP requests to retrieve the list of breeds.
 func (h *BreedHandler) GetBreedsHandler(c *gin.Context) {
 	breeds, err := h.breedStore.GetBreeds()
 	if err != nil {
-		log.Printf("Error al obtener razas desde el store: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error", "message": err.Error()})
+		log.Printf("Error getting breeds from store: %v", err)
+		respondError(c, http.StatusInternalServerError, ErrInternalServer, err.Error())
 		return
 	}
-
 	c.JSON(http.StatusOK, breeds)
 }
 
+// GetBreedBySlugHandler handles HTTP requests to retrieve a breed by slug.
 func (h *BreedHandler) GetBreedBySlugHandler(c *gin.Context) {
 	slug := c.Param("slug")
-
+	if slug == "" {
+		respondError(c, http.StatusBadRequest, "Breed slug is required")
+		return
+	}
 	breed, err := h.breedStore.GetBreedBySlug(slug)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Breed not found", "message": err.Error()})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error", "message": err.Error()})
+			respondError(c, http.StatusNotFound, ErrBreedNotFound, err.Error())
 			return
 		}
+		respondError(c, http.StatusInternalServerError, ErrInternalServer, err.Error())
+		return
 	}
-
 	c.JSON(http.StatusOK, breed)
 }

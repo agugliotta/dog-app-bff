@@ -161,7 +161,7 @@ func TestGetPetByIDHandler(t *testing.T) {
 		var resp map[string]interface{}
 		err := json.NewDecoder(w.Body).Decode(&resp)
 		assert.NoError(t, err, "error decoding response")
-		assert.Equal(t, "Pet not found", resp["error"], "unexpected error message")
+		assert.Equal(t, ErrPetNotFound, resp["error"], "unexpected error message")
 	})
 }
 
@@ -206,7 +206,7 @@ func TestCreatePetHandler(t *testing.T) {
 		var resp map[string]interface{}
 		err := json.NewDecoder(w.Body).Decode(&resp)
 		assert.NoError(t, err, "error decoding response")
-		assert.Equal(t, "Error at checking the breed", resp["error"], "unexpected error message")
+		assert.Equal(t, ErrBreedNotFound, resp["error"], "unexpected error message")
 	})
 
 	t.Run("bad date", func(t *testing.T) {
@@ -224,7 +224,7 @@ func TestCreatePetHandler(t *testing.T) {
 		var resp map[string]interface{}
 		err := json.NewDecoder(w.Body).Decode(&resp)
 		assert.NoError(t, err, "error decoding response")
-		assert.Equal(t, "Bad date of birth format. Use YYYY-MM-DD", resp["error"], "unexpected error message")
+		assert.Equal(t, ErrBadDateFormat, resp["error"], "unexpected error message")
 	})
 
 	t.Run("bad json", func(t *testing.T) {
