@@ -48,13 +48,20 @@ These instructions will guide you on how to set up and run the backend applicati
     ```
     The backend server will start on port `8080`.
 
+
 ### API Endpoints
 
-* `GET /api/v1/breeds`: Get all dog breeds.
-* `GET /api/v1/breeds/{id}`: Get a specific dog breed by ID.
-* `GET /api/v1/pets`: Get all registered pets.
-* `GET /api/v1/pets/{id}`: Get a specific pet by ID.
-* `POST /api/v1/pets`: Create a new pet.
+#### Breed Endpoints
+* `GET /api/v1/breeds` — Get all dog breeds.
+* `GET /api/v1/breeds/:slug` — Get a specific dog breed by slug (e.g., `mock-poodle`).
+
+#### Pet Endpoints
+* `GET /api/v1/pets` — Get all registered pets.
+* `GET /api/v1/pets/:id` — Get a specific pet by ID.
+* `POST /api/v1/pets` — Create a new pet.
+* `DELETE /api/v1/pets/:id` — Delete a pet by ID.
+
+All endpoints return JSON responses. Error messages are also returned in JSON format for consistency.
 
 ### Running Tests
 
