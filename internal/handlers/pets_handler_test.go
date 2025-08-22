@@ -14,6 +14,7 @@ import (
 	"github.com/agugliotta/dog-app-bff/internal/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 type PetStoreMock struct {
@@ -113,7 +114,7 @@ func TestGetPetsHandler(t *testing.T) {
 	petStore := &PetStoreMock{pets: pets, breeds: breeds}
 	breedStore := &BreedStoreMock{breeds: breeds}
 	router := gin.Default()
-	RegisterRoutes(router, breedStore, petStore)
+	RegisterRoutes(router, zap.NewNop(), breedStore, petStore)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/api/v1/pets", nil)
@@ -136,7 +137,7 @@ func TestGetPetByIDHandler(t *testing.T) {
 	petStore := &PetStoreMock{pets: pets, breeds: breeds}
 	breedStore := &BreedStoreMock{breeds: breeds}
 	router := gin.Default()
-	RegisterRoutes(router, breedStore, petStore)
+	RegisterRoutes(router, zap.NewNop(), breedStore, petStore)
 
 	t.Run("found", func(t *testing.T) {
 		w := httptest.NewRecorder()
@@ -170,7 +171,7 @@ func TestCreatePetHandler(t *testing.T) {
 	petStore := &PetStoreMock{breeds: breeds}
 	breedStore := &BreedStoreMock{breeds: breeds}
 	router := gin.Default()
-	RegisterRoutes(router, breedStore, petStore)
+	RegisterRoutes(router, zap.NewNop(), breedStore, petStore)
 
 	t.Run("success", func(t *testing.T) {
 		reqBody := types.CreatePetRequest{
