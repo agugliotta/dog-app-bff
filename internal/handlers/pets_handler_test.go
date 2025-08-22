@@ -12,6 +12,8 @@ import (
 
 	"github.com/agugliotta/dog-app-bff/internal/store"
 	"github.com/agugliotta/dog-app-bff/internal/types"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 )
 
 type PetStoreMock struct {
@@ -110,25 +112,22 @@ func TestGetPetsHandler(t *testing.T) {
 	pets := []types.Pet{{ID: "p1", Name: "Fido", Birth: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), Breed: breeds[0]}}
 	petStore := &PetStoreMock{pets: pets, breeds: breeds}
 	breedStore := &BreedStoreMock{breeds: breeds}
-	handler := NewPetHandler(petStore, breedStore)
+	router := gin.Default()
+	RegisterRoutes(router, breedStore, petStore)
 
+	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/api/v1/pets", nil)
-	rec := httptest.NewRecorder()
-	handler.PetsHandler(rec, req)
+	router.ServeHTTP(w, req)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rec.Code)
-	}
-	if rec.Header().Get("Content-Type") != "application/json" {
-		t.Errorf("expected application/json, got %s", rec.Header().Get("Content-Type"))
-	}
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	assert.Equal(t, ContentTypeExpected, w.Header().Get("Content-Type"))
+
 	var got []types.Pet
-	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
-		t.Errorf("error decoding response: %v", err)
-	}
-	if len(got) != 1 || got[0].ID != "p1" {
-		t.Errorf("unexpected pets: %+v", got)
-	}
+	err := json.NewDecoder(w.Body).Decode(&got)
+	assert.NoError(t, err, "error decoding response")
+	assert.Len(t, got, 1, "unexpected number of pets")
+	assert.Equal(t, "p1", got[0].ID, "unexpected pet ID")
 }
 
 func TestGetPetByIDHandler(t *testing.T) {
@@ -136,34 +135,33 @@ func TestGetPetByIDHandler(t *testing.T) {
 	pets := []types.Pet{{ID: "p1", Name: "Fido", Birth: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), Breed: breeds[0]}}
 	petStore := &PetStoreMock{pets: pets, breeds: breeds}
 	breedStore := &BreedStoreMock{breeds: breeds}
-	handler := NewPetHandler(petStore, breedStore)
+	router := gin.Default()
+	RegisterRoutes(router, breedStore, petStore)
 
 	t.Run("found", func(t *testing.T) {
+		w := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/api/v1/pets/p1", nil)
-		rec := httptest.NewRecorder()
-		handler.getPetByIDHandler(rec, req)
-		if rec.Code != http.StatusOK {
-			t.Errorf("expected 200, got %d", rec.Code)
-		}
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
 		var got types.Pet
-		if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
-			t.Errorf("error decoding: %v", err)
-		}
-		if got.ID != "p1" {
-			t.Errorf("unexpected pet: %+v", got)
-		}
+		err := json.NewDecoder(w.Body).Decode(&got)
+		assert.NoError(t, err, "error decoding response")
+		assert.Equal(t, "p1", got.ID, "unexpected pet ID")
 	})
 
 	t.Run("not found", func(t *testing.T) {
+		w := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/api/v1/pets/doesnotexist", nil)
-		rec := httptest.NewRecorder()
-		handler.getPetByIDHandler(rec, req)
-		if rec.Code != http.StatusNotFound {
-			t.Errorf("expected 404, got %d", rec.Code)
-		}
-		if rec.Body.String() != "Pet not found\n" {
-			t.Errorf("unexpected body: %q", rec.Body.String())
-		}
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+
+		var resp map[string]interface{}
+		err := json.NewDecoder(w.Body).Decode(&resp)
+		assert.NoError(t, err, "error decoding response")
+		assert.Equal(t, ErrPetNotFound, resp["error"], "unexpected error message")
 	})
 }
 
@@ -171,7 +169,8 @@ func TestCreatePetHandler(t *testing.T) {
 	breeds := []types.Breed{{ID: "b1", Name: "Breed1", Temperament: "T1", Origin: "O1"}}
 	petStore := &PetStoreMock{breeds: breeds}
 	breedStore := &BreedStoreMock{breeds: breeds}
-	handler := NewPetHandler(petStore, breedStore)
+	router := gin.Default()
+	RegisterRoutes(router, breedStore, petStore)
 
 	t.Run("success", func(t *testing.T) {
 		reqBody := types.CreatePetRequest{
@@ -181,18 +180,15 @@ func TestCreatePetHandler(t *testing.T) {
 		}
 		body, _ := json.Marshal(reqBody)
 		req, _ := http.NewRequest("POST", "/api/v1/pets", bytes.NewReader(body))
-		rec := httptest.NewRecorder()
-		handler.PetsHandler(rec, req)
-		if rec.Code != http.StatusCreated {
-			t.Errorf("expected 201, got %d", rec.Code)
-		}
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusCreated, w.Code, "expected status 201")
 		var got types.Pet
-		if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
-			t.Errorf("error decoding: %v", err)
-		}
-		if got.Name != "Fido" || got.Breed.ID != "b1" {
-			t.Errorf("unexpected pet: %+v", got)
-		}
+		err := json.NewDecoder(w.Body).Decode(&got)
+		assert.NoError(t, err, "error decoding response")
+		assert.Equal(t, "Fido", got.Name, "unexpected pet name")
+		assert.Equal(t, "b1", got.Breed.ID, "unexpected breed ID")
 	})
 
 	t.Run("bad breed", func(t *testing.T) {
@@ -203,14 +199,14 @@ func TestCreatePetHandler(t *testing.T) {
 		}
 		body, _ := json.Marshal(reqBody)
 		req, _ := http.NewRequest("POST", "/api/v1/pets", bytes.NewReader(body))
-		rec := httptest.NewRecorder()
-		handler.PetsHandler(rec, req)
-		if rec.Code != http.StatusBadRequest {
-			t.Errorf("expected 400, got %d", rec.Code)
-		}
-		if rec.Body.String() != "Error at checking the breed\n" {
-			t.Errorf("unexpected body: %q", rec.Body.String())
-		}
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code, "expected status 400")
+		var resp map[string]interface{}
+		err := json.NewDecoder(w.Body).Decode(&resp)
+		assert.NoError(t, err, "error decoding response")
+		assert.Equal(t, ErrBreedNotFound, resp["error"], "unexpected error message")
 	})
 
 	t.Run("bad date", func(t *testing.T) {
@@ -221,25 +217,25 @@ func TestCreatePetHandler(t *testing.T) {
 		}
 		body, _ := json.Marshal(reqBody)
 		req, _ := http.NewRequest("POST", "/api/v1/pets", bytes.NewReader(body))
-		rec := httptest.NewRecorder()
-		handler.PetsHandler(rec, req)
-		if rec.Code != http.StatusBadRequest {
-			t.Errorf("expected 400, got %d", rec.Code)
-		}
-		if rec.Body.String() != "Bad date of birth format. Use YYYY-MM-DD\n" {
-			t.Errorf("unexpected body: %q", rec.Body.String())
-		}
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code, "expected status 400")
+		var resp map[string]interface{}
+		err := json.NewDecoder(w.Body).Decode(&resp)
+		assert.NoError(t, err, "error decoding response")
+		assert.Equal(t, ErrBadDateFormat, resp["error"], "unexpected error message")
 	})
 
 	t.Run("bad json", func(t *testing.T) {
 		req, _ := http.NewRequest("POST", "/api/v1/pets", bytes.NewReader([]byte("not-json")))
-		rec := httptest.NewRecorder()
-		handler.PetsHandler(rec, req)
-		if rec.Code != http.StatusBadRequest {
-			t.Errorf("expected 400, got %d", rec.Code)
-		}
-		if rec.Body.String() != "Error decoding the body of the request\n" {
-			t.Errorf("unexpected body: %q", rec.Body.String())
-		}
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code, "expected status 400")
+		var resp map[string]interface{}
+		err := json.NewDecoder(w.Body).Decode(&resp)
+		assert.NoError(t, err, "error decoding response")
+		assert.Contains(t, resp, "error", "expected error field in response")
 	})
 }

@@ -8,6 +8,8 @@ import (
 
 	"github.com/agugliotta/dog-app-bff/internal/store"
 	"github.com/agugliotta/dog-app-bff/internal/types"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 )
 
 type StoreMock struct{}
@@ -19,19 +21,14 @@ func (sm *StoreMock) GetBreeds() ([]types.Breed, error) {
 	}, nil
 }
 
-// GetBreedByID implementa el método GetBreedByID de la interfaz BreedStore para el mock.
 func (m *StoreMock) GetBreedByID(id string) (*types.Breed, error) {
 	if id == "mock-breed-1" {
 		return &types.Breed{ID: "mock-breed-1", Name: "Mock Poodle", Temperament: "Mock Temp 1", Origin: "Mockland", Slug: "mock-poodle"}, nil
 	}
 	if id == "non-existent-id" {
-		return nil, store.ErrNotFound // ¡Ahora devuelve tu error sentinel!
+		return nil, store.ErrNotFound
 	}
-	// Podrías añadir un caso para simular un error interno de store también:
-	// if id == "error-id" {
-	//    return nil, errors.New("simulated internal store error")
-	// }
-	return nil, store.ErrNotFound // Default para IDs no definidos en el mock
+	return nil, store.ErrNotFound
 }
 
 func (m *StoreMock) GetBreedBySlug(slug string) (*types.Breed, error) {
@@ -46,93 +43,56 @@ func (m *StoreMock) GetBreedBySlug(slug string) (*types.Breed, error) {
 
 func TestGetBreedsHandler(t *testing.T) {
 	var breeds []types.Breed
-	handler := NewBreedHandler(&StoreMock{})
-	recorder := httptest.NewRecorder()
-	request, err := http.NewRequest("GET", "/api/v1/breeds", nil)
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/api/v1/breeds", nil)
+	assert.NoError(t, err)
+	router := gin.Default()
+	RegisterRoutes(router, &StoreMock{}, nil)
+	router.ServeHTTP(w, req)
 
-	if err != nil {
-		t.Fatalf("Error en el request")
-	}
+	assert.Equal(t, http.StatusOK, w.Code, "The Request was unsuccessful")
+	assert.Equal(t, ContentTypeExpected, w.Header().Get("Content-Type"), "Wrong header")
 
-	handler.GetBreedsHandler(recorder, request)
+	err = json.NewDecoder(w.Body).Decode(&breeds)
+	assert.NoError(t, err, "Error decoding JSON response")
 
-	if recorder.Code != http.StatusOK {
-		t.Errorf("The Request was unsuccesful")
-	}
-
-	if recorder.Header().Get("Content-Type") != "application/json" {
-		t.Errorf("Wrong header: expected 'application/json', got '%s'", recorder.Header().Get("Content-Type"))
-	}
-
-	err = json.NewDecoder(recorder.Body).Decode(&breeds)
-	if err != nil {
-		t.Errorf("Error al decodificar la respuesta JSON: %v", err)
-	}
-
-	if len(breeds) != 2 {
-		t.Errorf("Wrong lenght in the result array")
-	}
-
-	if breeds[0].ID != "mock-breed-1" {
-		t.Errorf("Wrong id for first record, is %s and it should be %s", breeds[0].ID, "mock-breed-1")
-	}
+	assert.Len(t, breeds, 2, "Wrong length in the result array")
+	assert.Equal(t, "mock-breed-1", breeds[0].ID, "Wrong id for first record")
 }
 
 func TestGetBreedByIDHandler(t *testing.T) {
 	t.Run("should return breed for existing Slug", func(t *testing.T) {
 		var breed types.Breed
-		handler := NewBreedHandler(&StoreMock{})
-		recorder := httptest.NewRecorder()
-		request, err := http.NewRequest("GET", "/api/v1/breeds/mock-poodle", nil)
+		w := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/api/v1/breeds/mock-poodle", nil)
+		assert.NoError(t, err)
+		router := gin.Default()
+		RegisterRoutes(router, &StoreMock{}, nil)
+		router.ServeHTTP(w, req)
 
-		if err != nil {
-			t.Fatalf("Error en el request")
-		}
+		assert.Equal(t, http.StatusOK, w.Code, "The Request was unsuccessful")
+		assert.Equal(t, ContentTypeExpected, w.Header().Get("Content-Type"), "Wrong header")
 
-		handler.GetBreedBySlugHandler(recorder, request)
+		err = json.NewDecoder(w.Body).Decode(&breed)
+		assert.NoError(t, err, "Error decoding JSON response")
 
-		if recorder.Code != http.StatusOK {
-			t.Errorf("The Request was unsuccesful")
-		}
-
-		if recorder.Header().Get("Content-Type") != "application/json" {
-			t.Errorf("Wrong header: expected 'application/json', got '%s'", recorder.Header().Get("Content-Type"))
-		}
-
-		err = json.NewDecoder(recorder.Body).Decode(&breed)
-		if err != nil {
-			t.Errorf("Error al decodificar la respuesta JSON: %v", err)
-		}
-
-		expectedSlug := "mock-poodle"
-		expectedName := "Mock Poodle"
-		if breed.Slug != expectedSlug {
-			t.Errorf("Slug de raza incorrecto: esperado '%s', obtenido '%s'", expectedSlug, breed.Slug)
-		}
-		if breed.Name != expectedName {
-			t.Errorf("Nombre de raza incorrecto: esperado '%s', obtenido '%s'", expectedName, breed.Name)
-		}
+		assert.Equal(t, "mock-poodle", breed.Slug, "Incorrect breed slug")
+		assert.Equal(t, "Mock Poodle", breed.Name, "Incorrect breed name")
 	})
 
 	t.Run("should return 404 for non-existent ID", func(t *testing.T) {
-		handler := NewBreedHandler(&StoreMock{})
-		recorder := httptest.NewRecorder()
-		request, err := http.NewRequest("GET", "/api/v1/breeds/non-existent-id", nil) // Este ID ahora causa ErrNotFound en el mock
-		if err != nil {
-			t.Fatalf("Error al crear la solicitud: %v", err)
-		}
+		w := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/api/v1/breeds/non-existent-id", nil)
+		assert.NoError(t, err)
+		router := gin.Default()
+		RegisterRoutes(router, &StoreMock{}, nil)
+		router.ServeHTTP(w, req)
 
-		handler.GetBreedBySlugHandler(recorder, request)
-
-		if recorder.Code != http.StatusNotFound { // Verifica el 404
-			t.Errorf("Código de estado incorrecto para ID no existente: esperado %d, obtenido %d", http.StatusNotFound, recorder.Code)
-		}
-		expectedBody := "Breed not found\n" // Verifica el mensaje específico
-		if recorder.Body.String() != expectedBody {
-			t.Errorf("Cuerpo de respuesta de error incorrecto: esperado '%s', obtenido '%s'", expectedBody, recorder.Body.String())
-		}
-		if recorder.Header().Get("Content-Type") != "text/plain; charset=utf-8" { // http.Error devuelve text/plain por defecto
-			t.Errorf("Encabezado Content-Type incorrecto: esperado 'text/plain; charset=utf-8', obtenido '%s'", recorder.Header().Get("Content-Type"))
-		}
+		assert.Equal(t, http.StatusNotFound, w.Code, "Incorrect status code for non-existent ID")
+		var resp map[string]interface{}
+		err = json.NewDecoder(w.Body).Decode(&resp)
+		assert.NoError(t, err, "error decoding response")
+		assert.Equal(t, "Breed not found", resp["error"], "Incorrect error response body")
+		assert.Equal(t, ContentTypeExpected, w.Header().Get("Content-Type"), "Incorrect Content-Type header")
 	})
 }
