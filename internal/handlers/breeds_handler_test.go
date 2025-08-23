@@ -10,6 +10,7 @@ import (
 	"github.com/agugliotta/dog-app-bff/internal/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 type StoreMock struct{}
@@ -47,7 +48,7 @@ func TestGetBreedsHandler(t *testing.T) {
 	req, err := http.NewRequest("GET", "/api/v1/breeds", nil)
 	assert.NoError(t, err)
 	router := gin.Default()
-	RegisterRoutes(router, &StoreMock{}, nil)
+	RegisterRoutes(router, zap.NewNop(), &StoreMock{}, nil)
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code, "The Request was unsuccessful")
@@ -67,7 +68,7 @@ func TestGetBreedByIDHandler(t *testing.T) {
 		req, err := http.NewRequest("GET", "/api/v1/breeds/mock-poodle", nil)
 		assert.NoError(t, err)
 		router := gin.Default()
-		RegisterRoutes(router, &StoreMock{}, nil)
+		RegisterRoutes(router, zap.NewNop(), &StoreMock{}, nil)
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code, "The Request was unsuccessful")
@@ -85,7 +86,7 @@ func TestGetBreedByIDHandler(t *testing.T) {
 		req, err := http.NewRequest("GET", "/api/v1/breeds/non-existent-id", nil)
 		assert.NoError(t, err)
 		router := gin.Default()
-		RegisterRoutes(router, &StoreMock{}, nil)
+		RegisterRoutes(router, zap.NewNop(), &StoreMock{}, nil)
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusNotFound, w.Code, "Incorrect status code for non-existent ID")

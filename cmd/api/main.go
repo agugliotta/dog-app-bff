@@ -1,31 +1,34 @@
 package main
 
 import (
-	"log"
 	"os"
 
 	"github.com/agugliotta/dog-app-bff/internal/handlers"
 	"github.com/agugliotta/dog-app-bff/internal/store"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func main() {
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+
 	connStr := os.Getenv("DB_CONN_STRING")
 	if connStr == "" {
-		log.Fatal("La variable de entorno DB_CONN_STRING no está configurada. Por favor, configúrala.")
+		logger.Fatal("La variable de entorno DB_CONN_STRING no está configurada. Por favor, configúrala.")
 	}
 
 	pgStore, err := store.NewPostgresStore(connStr)
 	if err != nil {
-		log.Fatalf("Error al inicializar el store de PostgreSQL: %v", err)
+		logger.Fatal("Error al inicializar el store de PostgreSQL", zap.Error(err))
 	}
 	defer pgStore.Close()
 
 	router := gin.Default()
-	handlers.RegisterRoutes(router, pgStore, pgStore)
+	handlers.RegisterRoutes(router, logger, pgStore, pgStore)
 
-	log.Printf("Servidor iniciando en :8080...")
+	logger.Info("Servidor iniciando", zap.String("address", ":8080"))
 	if err := router.Run(":8080"); err != nil {
-		log.Fatalf("El servidor falló al iniciar: %v", err)
+		logger.Fatal("El servidor falló al iniciar", zap.Error(err))
 	}
 }
