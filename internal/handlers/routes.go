@@ -3,6 +3,8 @@ package handlers
 import (
 	"strings"
 
+	"github.com/agugliotta/dog-app-bff/internal/handlers/breeds"
+	"github.com/agugliotta/dog-app-bff/internal/handlers/pets"
 	"github.com/agugliotta/dog-app-bff/internal/store"
 	"github.com/gin-gonic/gin"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
@@ -10,8 +12,8 @@ import (
 )
 
 func RegisterRoutes(router *gin.Engine, logger *zap.Logger, bs store.BreedStore, ps store.PetStore) {
-	breedHandler := NewBreedHandler(logger, bs)
-	petHandler := NewPetHandler(logger, ps, bs)
+	breedHandler := breeds.NewBreedHandler(logger, bs)
+	petHandler := pets.NewPetHandler(logger, ps, bs)
 
 	prometheus := ginprometheus.NewWithConfig(ginprometheus.Config{
 		Subsystem: "gin",

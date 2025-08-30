@@ -1,4 +1,4 @@
-package handlers
+package utils
 
 import (
 	"github.com/gin-gonic/gin"
@@ -14,7 +14,7 @@ const (
 	ErrBreedIDRequired = "Breed ID is required"
 )
 
-func respondError(c *gin.Context, status int, errMsg string, details ...string) {
+func RespondError(c *gin.Context, status int, errMsg string, details ...string) {
 	resp := gin.H{"error": errMsg}
 	if len(details) > 0 {
 		resp["message"] = details[0]

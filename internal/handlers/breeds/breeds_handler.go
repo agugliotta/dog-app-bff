@@ -1,9 +1,10 @@
-package handlers
+package breeds
 
 import (
 	"errors"
 	"net/http"
 
+	"github.com/agugliotta/dog-app-bff/internal/handlers/utils"
 	"github.com/agugliotta/dog-app-bff/internal/store"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -28,7 +29,7 @@ func (h *BreedHandler) GetBreedsHandler(c *gin.Context) {
 	breeds, err := h.breedStore.GetBreeds()
 	if err != nil {
 		h.logger.Error("Error getting breeds from store", zap.Error(err))
-		respondError(c, http.StatusInternalServerError, ErrInternalServer, err.Error())
+		utils.RespondError(c, http.StatusInternalServerError, utils.ErrInternalServer, err.Error())
 		return
 	}
 	h.logger.Info("Fetched breeds", zap.Int("count", len(breeds)))
@@ -40,18 +41,18 @@ func (h *BreedHandler) GetBreedBySlugHandler(c *gin.Context) {
 	slug := c.Param("slug")
 	if slug == "" {
 		h.logger.Warn("Breed slug is required")
-		respondError(c, http.StatusBadRequest, "Breed slug is required")
+		utils.RespondError(c, http.StatusBadRequest, "Breed slug is required")
 		return
 	}
 	breed, err := h.breedStore.GetBreedBySlug(slug)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			h.logger.Warn("Breed not found", zap.String("slug", slug))
-			respondError(c, http.StatusNotFound, ErrBreedNotFound, err.Error())
+			utils.RespondError(c, http.StatusNotFound, utils.ErrBreedNotFound, err.Error())
 			return
 		}
 		h.logger.Error("Error getting breed by slug", zap.String("slug", slug), zap.Error(err))
-		respondError(c, http.StatusInternalServerError, ErrInternalServer, err.Error())
+		utils.RespondError(c, http.StatusInternalServerError, utils.ErrInternalServer, err.Error())
 		return
 	}
 	h.logger.Info("Fetched breed", zap.String("slug", breed.Slug))
