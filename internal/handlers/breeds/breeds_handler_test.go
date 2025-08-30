@@ -1,4 +1,4 @@
-package handlers
+package breeds_test
 
 import (
 	"encoding/json"
@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/agugliotta/dog-app-bff/internal/handlers"
+	"github.com/agugliotta/dog-app-bff/internal/handlers/utils"
 	"github.com/agugliotta/dog-app-bff/internal/store"
 	"github.com/agugliotta/dog-app-bff/internal/types"
 	"github.com/gin-gonic/gin"
@@ -48,11 +50,11 @@ func TestGetBreedsHandler(t *testing.T) {
 	req, err := http.NewRequest("GET", "/api/v1/breeds", nil)
 	assert.NoError(t, err)
 	router := gin.Default()
-	RegisterRoutes(router, zap.NewNop(), &StoreMock{}, nil)
+	handlers.RegisterRoutes(router, zap.NewNop(), &StoreMock{}, nil)
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code, "The Request was unsuccessful")
-	assert.Equal(t, ContentTypeExpected, w.Header().Get("Content-Type"), "Wrong header")
+	assert.Equal(t, utils.ContentTypeExpected, w.Header().Get("Content-Type"), "Wrong header")
 
 	err = json.NewDecoder(w.Body).Decode(&breeds)
 	assert.NoError(t, err, "Error decoding JSON response")
@@ -68,11 +70,11 @@ func TestGetBreedByIDHandler(t *testing.T) {
 		req, err := http.NewRequest("GET", "/api/v1/breeds/mock-poodle", nil)
 		assert.NoError(t, err)
 		router := gin.Default()
-		RegisterRoutes(router, zap.NewNop(), &StoreMock{}, nil)
+		handlers.RegisterRoutes(router, zap.NewNop(), &StoreMock{}, nil)
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code, "The Request was unsuccessful")
-		assert.Equal(t, ContentTypeExpected, w.Header().Get("Content-Type"), "Wrong header")
+		assert.Equal(t, utils.ContentTypeExpected, w.Header().Get("Content-Type"), "Wrong header")
 
 		err = json.NewDecoder(w.Body).Decode(&breed)
 		assert.NoError(t, err, "Error decoding JSON response")
@@ -86,7 +88,7 @@ func TestGetBreedByIDHandler(t *testing.T) {
 		req, err := http.NewRequest("GET", "/api/v1/breeds/non-existent-id", nil)
 		assert.NoError(t, err)
 		router := gin.Default()
-		RegisterRoutes(router, zap.NewNop(), &StoreMock{}, nil)
+		handlers.RegisterRoutes(router, zap.NewNop(), &StoreMock{}, nil)
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusNotFound, w.Code, "Incorrect status code for non-existent ID")
@@ -94,6 +96,6 @@ func TestGetBreedByIDHandler(t *testing.T) {
 		err = json.NewDecoder(w.Body).Decode(&resp)
 		assert.NoError(t, err, "error decoding response")
 		assert.Equal(t, "Breed not found", resp["error"], "Incorrect error response body")
-		assert.Equal(t, ContentTypeExpected, w.Header().Get("Content-Type"), "Incorrect Content-Type header")
+		assert.Equal(t, utils.ContentTypeExpected, w.Header().Get("Content-Type"), "Incorrect Content-Type header")
 	})
 }

@@ -1,4 +1,4 @@
-package handlers
+package pets_test
 
 import (
 	"bytes"
@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agugliotta/dog-app-bff/internal/handlers"
+	"github.com/agugliotta/dog-app-bff/internal/handlers/utils"
 	"github.com/agugliotta/dog-app-bff/internal/store"
 	"github.com/agugliotta/dog-app-bff/internal/types"
 	"github.com/gin-gonic/gin"
@@ -114,7 +116,7 @@ func TestGetPetsHandler(t *testing.T) {
 	petStore := &PetStoreMock{pets: pets, breeds: breeds}
 	breedStore := &BreedStoreMock{breeds: breeds}
 	router := gin.Default()
-	RegisterRoutes(router, zap.NewNop(), breedStore, petStore)
+	handlers.RegisterRoutes(router, zap.NewNop(), breedStore, petStore)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/api/v1/pets", nil)
@@ -122,7 +124,7 @@ func TestGetPetsHandler(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	assert.Equal(t, ContentTypeExpected, w.Header().Get("Content-Type"))
+	assert.Equal(t, utils.ContentTypeExpected, w.Header().Get("Content-Type"))
 
 	var got []types.Pet
 	err := json.NewDecoder(w.Body).Decode(&got)
@@ -137,7 +139,7 @@ func TestGetPetByIDHandler(t *testing.T) {
 	petStore := &PetStoreMock{pets: pets, breeds: breeds}
 	breedStore := &BreedStoreMock{breeds: breeds}
 	router := gin.Default()
-	RegisterRoutes(router, zap.NewNop(), breedStore, petStore)
+	handlers.RegisterRoutes(router, zap.NewNop(), breedStore, petStore)
 
 	t.Run("found", func(t *testing.T) {
 		w := httptest.NewRecorder()
@@ -162,7 +164,7 @@ func TestGetPetByIDHandler(t *testing.T) {
 		var resp map[string]interface{}
 		err := json.NewDecoder(w.Body).Decode(&resp)
 		assert.NoError(t, err, "error decoding response")
-		assert.Equal(t, ErrPetNotFound, resp["error"], "unexpected error message")
+		assert.Equal(t, utils.ErrPetNotFound, resp["error"], "unexpected error message")
 	})
 }
 
@@ -171,7 +173,7 @@ func TestCreatePetHandler(t *testing.T) {
 	petStore := &PetStoreMock{breeds: breeds}
 	breedStore := &BreedStoreMock{breeds: breeds}
 	router := gin.Default()
-	RegisterRoutes(router, zap.NewNop(), breedStore, petStore)
+	handlers.RegisterRoutes(router, zap.NewNop(), breedStore, petStore)
 
 	t.Run("success", func(t *testing.T) {
 		reqBody := types.CreatePetRequest{
@@ -207,7 +209,7 @@ func TestCreatePetHandler(t *testing.T) {
 		var resp map[string]interface{}
 		err := json.NewDecoder(w.Body).Decode(&resp)
 		assert.NoError(t, err, "error decoding response")
-		assert.Equal(t, ErrBreedNotFound, resp["error"], "unexpected error message")
+		assert.Equal(t, utils.ErrBreedNotFound, resp["error"], "unexpected error message")
 	})
 
 	t.Run("bad date", func(t *testing.T) {
@@ -225,7 +227,7 @@ func TestCreatePetHandler(t *testing.T) {
 		var resp map[string]interface{}
 		err := json.NewDecoder(w.Body).Decode(&resp)
 		assert.NoError(t, err, "error decoding response")
-		assert.Equal(t, ErrBadDateFormat, resp["error"], "unexpected error message")
+		assert.Equal(t, utils.ErrBadDateFormat, resp["error"], "unexpected error message")
 	})
 
 	t.Run("bad json", func(t *testing.T) {
